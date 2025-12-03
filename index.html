@@ -1,0 +1,2075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Mentoring Dashboard - Fixed</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f0f2f5; }
+        .sidebar { transition: transform 0.3s ease-in-out; }
+        .main-content { transition: margin-left 0.3s ease-in-out; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.5); align-items: center; justify-content: center; }
+        .modal-content { background-color: #fefefe; margin: auto; padding: 20px; border: 1px solid #888; width: 90%; max-width: 600px; border-radius: 8px; animation: slide-down 0.3s ease-out; }
+        @keyframes slide-down { from { transform: translateY(-50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .category-radio:checked + label { border-color: #4f46e5; background-color: #eef2ff; color: #4338ca; }
+        #login-page { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        
+        /* UPDATED Print Styles to fix blank page issue */
+        @media print {
+            /* Hide non-app and auxiliary elements */
+            #login-page, #student-app, #admin-app, .modal { display: none !important; }
+
+            /* Show the main app container and reset its layout for print */
+            #app { display: block !important; position: static !important; width: 100% !important; height: auto !important; }
+            
+            /* Hide sidebar */
+            #app > aside { display: none !important; }
+            
+            /* Make main content full width and visible */
+            .main-content { 
+                display: block !important; 
+                width: 100% !important; 
+                margin: 0 !important; 
+                padding: 20px !important; 
+                position: static !important;
+                overflow: visible !important;
+            }
+            
+            /* Hide all mentor sections except analysis-report */
+            .content-section:not(#analysis-report) { display: none !important; }
+            
+            /* Ensure analysis report is visible and its children are visible */
+            #analysis-report { 
+                display: block !important; 
+                width: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                position: static !important;
+                overflow: visible !important;
+            } 
+
+            /* Hide the selection dropdown/button bar within the analysis-report */
+            #analysis-report > div:first-child { display: none !important; } 
+            
+            /* Formatting for the dynamic report container */
+            #student-analysis-container { 
+                margin-top: 0 !important; 
+                padding-top: 0 !important; 
+                margin-bottom: 20px !important;
+            }
+
+            /* Make the content within the form look like a report, hide save button */
+            #individual-analysis-form button[type="submit"] { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+    <div id="login-page" class="flex items-center justify-center h-screen w-screen p-4">
+        <div class="w-full max-w-6xl">
+            <div class="text-center mb-10">
+                <svg class="w-16 h-16 mx-auto text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.409 9.243 5 7.5 5S4.168 5.409 3 6.253v13C4.168 18.409 5.757 18 7.5 18s3.332.409 4.5 1.253m0-13C13.168 5.409 14.757 5 16.5 5S19.832 5.409 21 6.253v13C19.832 18.409 18.243 18 16.5 18s-3.332.409-4.5 1.253"></path>
+                </svg>
+                <h2 class="text-5xl font-extrabold text-white mt-3">Smart Mentor Pro</h2>
+                <p class="text-xl text-indigo-200 mt-1">Annasaheb Dange College of Engineering and Technonology</p>
+                <p class="text-xl text-indigo-200 mt-1">Department of Artificial Intelligence and Data Science</p>
+    </div>
+
+ 
+            <div class="grid md:grid-cols-3 md:gap-8">
+                <div class="bg-white rounded-2xl shadow-2xl p-8 space-y-6 mb-8 md:mb-0">
+                    <div id="admin-login-form-container">
+                        <div class="text-center mb-6">
+                            <h1 class="text-3xl font-bold text-gray-800">Admin Login</h1>
+                            <p class="text-gray-500">System Management</p>
+                        </div>
+                        <form id="admin-login-form" class="space-y-6">
+                            <div>
+                                <label for="admin-username" class="text-sm font-medium text-gray-700">Admin Username</label>
+                                <input id="admin-username" name="username" type="text" required class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="e.g., admin">
+                            </div>
+                            <div>
+                                <label for="admin-password" class="text-sm font-medium text-gray-700">Admin Password</label>
+                                <input id="admin-password" name="password" type="password" required class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="e.g., password">
+                            </div>
+                            <p id="admin-login-error" class="text-red-500 text-sm hidden">Invalid username or password.</p>
+                            <button type="submit" class="w-full py-3 px-4 bg-indigo-600 text-white font-semibold rounded-lg">Login as Admin</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-2xl p-8 space-y-6 mb-8 md:mb-0">
+                    <div id="mentor-login-form">
+                        <div class="text-center mb-6">
+                            <h1 class="text-3xl font-bold text-gray-800">Mentor Login</h1>
+                            <p class="text-gray-500">Welcome to the Mentoring System</p>
+                        </div>
+                        <form id="login-form" class="space-y-6">
+                            <div>
+                                <label for="username" class="text-sm font-medium text-gray-700">Username</label>
+                                <input id="username" name="username" type="text" required class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="e.g., mentor">
+                            </div>
+                            <div>
+                                <label for="password" class="text-sm font-medium text-gray-700">Password</label>
+                                <input id="password" name="password" type="password" required class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="e.g., password">
+                            </div>
+                            <p id="login-error" class="text-red-500 text-sm hidden">Invalid username or password.</p>
+                            <button type="submit" class="w-full py-3 px-4 bg-indigo-600 text-white font-semibold rounded-lg">Login as Mentor</button>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl shadow-2xl p-8 space-y-6">
+                    <div id="student-login-form">
+                        <div class="text-center mb-6">
+                            <h1 class="text-3xl font-bold text-gray-800">Student Login</h1>
+                            <p class="text-gray-500">Access your mentoring profile</p>
+                        </div>
+                        <form id="student-login" class="space-y-6">
+                            <div>
+                                <label for="student-rollno" class="text-sm font-medium text-gray-700">Roll No.</label>
+                                <input id="student-rollno" name="rollNo" type="text" required class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="e.g., 2021001">
+                            </div>
+                            <div>
+                                <label for="student-password" class="text-sm font-medium text-gray-700">Password</label>
+                                <input id="student-password" name="password" type="password" required class="mt-1 w-full px-4 py-2 border border-gray-300 rounded-lg" placeholder="Enter your password">
+                            </div>
+                            <p id="student-login-error" class="text-red-500 text-sm hidden">Invalid Roll No. or password.</p>
+                            <button type="submit" class="w-full py-3 px-4 bg-indigo-600 text-white font-semibold rounded-lg">Login as Student</button>
+                            <div class="text-center">
+                                <p class="text-sm text-gray-600">
+                                    Don't have an account?
+                                    <button type="button" id="show-signup-btn" class="font-medium text-indigo-600">Sign Up</button>
+                                </p>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-app" class="flex h-screen overflow-hidden hidden">
+        <aside class="sidebar w-64 bg-white text-gray-800 flex-shrink-0 shadow-lg">
+            <div class="p-5 border-b border-gray-200">
+                <h1 class="text-xl font-bold text-indigo-600">Admin Panel</h1>
+                <p class="text-xs text-gray-500">Mentoring System</p>
+            </div>
+            <nav class="mt-5 flex-1">
+                <a href="#" class="admin-nav-link flex items-center py-3 px-5 text-gray-700 hover:bg-indigo-50 rounded-r-full" data-target="admin-manage-mentors">Manage Mentors</a>
+                <a href="#" class="admin-nav-link flex items-center py-3 px-5 text-gray-700 hover:bg-indigo-50 rounded-r-full" data-target="admin-manage-students">Manage Students</a>
+                <a href="#" class="admin-nav-link flex items-center py-3 px-5 text-gray-700 hover:bg-indigo-50 rounded-r-full" data-target="admin-assign-students">Assign Students</a>
+            </nav>
+            <div class="p-5 border-t border-gray-200">
+                <button id="admin-logout-btn" class="w-full flex items-center justify-center py-2 px-4 text-gray-700 hover:bg-red-50 rounded-lg">Logout</button>
+            </div>
+        </aside>
+
+        <main class="main-content flex-1 p-6 lg:p-8 overflow-y-auto">
+            <section id="admin-manage-mentors" class="admin-content-section">
+                <h2 class="text-3xl font-bold mb-6 text-gray-800">Manage Mentors</h2>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-1 bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Create New Mentor</h3>
+                        <form id="create-mentor-form" class="space-y-4">
+                            <div>
+                                <label for="mentor-username" class="text-sm font-medium text-gray-700">Username</label>
+                                <input id="mentor-username" name="username" type="text" required class="mt-1 w-full px-4 py-2 border rounded-md">
+                            </div>
+                            <div>
+                                <label for="mentor-password" class="text-sm font-medium text-gray-700">Password</label>
+                                <input id="mentor-password" name="password" type="password" required class="mt-1 w-full px-4 py-2 border rounded-md">
+                            </div>
+                            <p id="create-mentor-error" class="text-red-500 text-sm hidden"></p>
+                            <button type="submit" class="w-full py-2 px-4 bg-indigo-600 text-white rounded-lg">Create Mentor</button>
+                        </form>
+                    </div>
+                    <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                        <h3 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Mentor Accounts</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-sm text-left text-gray-500">
+                                <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                                    <tr><th class="px-6 py-3">Username</th><th class="px-6 py-3">Password</th><th class="px-6 py-3">Actions</th></tr>
+                                </thead>
+                                <tbody id="mentor-list-table"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="admin-manage-students" class="admin-content-section hidden">
+                <h2 class="text-3xl font-bold mb-6 text-gray-800">Manage Students</h2>
+                <div class="bg-white p-6 rounded-xl shadow-md overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr><th class="px-6 py-3">Roll No.</th><th class="px-6 py-3">Name</th><th class="px-6 py-3">Batch</th><th class="px-6 py-3">Year</th><th class="px-6 py-3">Password</th><th class="px-6 py-3">Assigned Mentor</th></tr>
+                        </thead>
+                        <tbody id="student-list-table"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="admin-assign-students" class="admin-content-section hidden">
+                <h2 class="text-3xl font-bold mb-6 text-gray-800">Assign Students to Mentor</h2>
+                <div class="bg-white p-6 rounded-xl shadow-md">
+                    <h3 class="text-xl font-semibold text-gray-700 mb-4 border-b pb-2">Manual Assignment (By Batch/Year)
+                    </h3>
+                    <form id="assign-by-batch-form" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                        <div class="md:col-span-2">
+                            <label for="assign-mentor-select" class="block text-sm font-medium text-gray-700">Select
+                                Mentor</label>
+                            <select id="assign-mentor-select" name="mentorUsername"
+                                class="mt-1 block w-full border border-gray-300 rounded-md p-2" required></select>
+                        </div>
+                        <div>
+                            <label for="assign-batch-select" class="block text-sm font-medium text-gray-700">Filter by
+                                Batch</label>
+                            <select id="assign-batch-select" name="batch"
+                                class="mt-1 block w-full border border-gray-300 rounded-md p-2"></select>
+                        </div>
+                        <div>
+                            <label for="assign-year-select" class="block text-sm font-medium text-gray-700">Filter by
+                                Year</label>
+                            <select id="assign-year-select" name="year"
+                                class="mt-1 block w-full border border-gray-300 rounded-md p-2">
+                                <option value="">-- Select Year --</option>
+                                <option value="1st">1st</option>
+                                <option value="2nd">2nd</option>
+                                <option value="3rd">3rd</option>
+                                <option value="4th">4th</option>
+                            </select>
+                        </div>
+                        <div class="md:col-span-4">
+                            <button type="submit"
+                                class="w-full py-2 px-4 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700">Assign
+                                Selected Batch/Year</button>
+                        </div>
+                    </form>
+
+                    <button id="auto-assign-btn"
+                        class="w-full mt-6 py-2 px-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">Automatic
+                        Mentor Assignment (Match Batch/Year)</button>
+
+                    <p id="assign-success-msg" class="text-green-600 text-center mt-4"></p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="app" class="flex h-screen overflow-hidden hidden">
+        <aside class="sidebar w-64 bg-white text-gray-800 flex-shrink-0 shadow-lg">
+            <div class="p-5 border-b border-gray-200">
+                <h1 class="text-xl font-bold text-indigo-600">Mentoring System</h1>
+                <p class="text-xs text-gray-500">Annasaheb Dange College</p>
+            </div>
+            <nav class="mt-5 flex-1">
+                <a href="#" class="nav-link flex items-center py-3 px-5 text-gray-700 hover:bg-indigo-50 rounded-r-full" data-target="dashboard">Dashboard</a>
+                <a href="#" class="nav-link flex items-center py-3 px-5 text-gray-700 hover:bg-indigo-50 rounded-r-full" data-target="mentoring-report">Mentoring Report</a>
+                <a href="#" class="nav-link flex items-center py-3 px-5 text-gray-700 hover:bg-indigo-50 rounded-r-full" data-target="academic-progress">Academic Progress</a>
+                <a href="#" class="nav-link flex items-center py-3 px-5 text-gray-700 hover:bg-indigo-50 rounded-r-full" data-target="student-progress">Student Progress</a>
+                <a href="#" class="nav-link flex items-center py-3 px-5 text-gray-700 hover:bg-indigo-50 rounded-r-full" data-target="analysis-report">Analysis Report</a>
+                <a href="#" class="nav-link flex items-center py-3 px-5 text-gray-700 hover:bg-indigo-50 rounded-r-full" data-target="mentor-profile">My Profile / Expertise</a>
+            </nav>
+            <div class="p-5 border-t border-gray-200">
+                <button id="logout-btn" class="w-full flex items-center justify-center py-2 px-4 text-gray-700 hover:bg-red-50 rounded-lg">Logout</button>
+            </div>
+        </aside>
+
+        <main class="main-content flex-1 p-6 lg:p-8 overflow-y-auto">
+            <section id="dashboard" class="content-section">
+                <h2 class="text-3xl font-bold mb-6 text-gray-800">Dashboard</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div class="bg-white p-6 rounded-xl shadow-md flex items-center justify-between">
+                        <div><p class="text-sm font-medium text-gray-500">Total Students</p><p id="total-students" class="text-3xl font-bold text-indigo-600">0</p></div>
+                        <div class="bg-indigo-100 rounded-full p-3"><svg class="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d=""></path></svg></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md flex items-center justify-between">
+                        <div><p class="text-sm font-medium text-gray-500">Bright Students</p><p id="bright-students" class="text-3xl font-bold text-green-600">0</p></div>
+                        <div class="bg-green-100 rounded-full p-3"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md flex items-center justify-between">
+                        <div><p class="text-sm font-medium text-gray-500">Average Students</p><p id="average-students" class="text-3xl font-bold text-yellow-600">0</p></div>
+                        <div class="bg-yellow-100 rounded-full p-3"></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-xl shadow-md flex items-center justify-between">
+                        <div><p class="text-sm font-medium text-gray-500">Weak Students</p><p id="weak-students" class="text-3xl font-bold text-red-600">0</p></div>
+                        <div class="bg-red-100 rounded-full p-3"></div>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+                    <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-md"><h3 class="text-lg font-semibold mb-4">Meeting Attendance</h3><canvas id="attendanceChart"></canvas></div>
+                    <div class="bg-white p-6 rounded-xl shadow-md"><h3 class="text-lg font-semibold mb-4">Student Analysis</h3><canvas id="analysisPieChart"></canvas></div>
+                </div>
+            </section>
+
+            <section id="mentoring-report" class="content-section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800">Mentoring Report</h2>
+                    <button id="add-meeting-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Add New Meeting</button>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr><th class="px-6 py-3">Meeting No.</th><th class="px-6 py-3">Date</th><th class="px-6 py-3">Agenda</th><th class="px-6 py-3">Present</th><th class="px-6 py-3">Absent</th></tr>
+                        </thead>
+                        <tbody id="mentoring-report-table"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="academic-progress" class="content-section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800">Academic Progress</h2>
+                    <button id="add-academic-record-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Add Student Record</button>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr><th class="px-6 py-3">Roll No.</th><th class="px-6 py-3">Name</th><th class="px-6 py-3">Overall Attendance (%)</th><th class="px-6 py-3">Exam Progress</th><th class="px-6 py-3">Actions</th></tr>
+                        </thead>
+                        <tbody id="academic-progress-table"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="student-progress" class="content-section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800">Co-Curricular & Extra-Curricular Progress</h2>
+                    <button id="add-student-activity-btn" class="bg-indigo-600 text-white px-4 py-2 rounded-lg">Add/Edit Student Activity</button>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr><th class="px-6 py-3">Roll No.</th><th class="px-6 py-3">Name</th><th class="px-6 py-3">NPTEL Course</th><th class="px-6 py-3">Internship</th><th class="px-6 py-3">Events</th><th class="px-6 py-3">Actions</th></tr>
+                        </thead>
+                        <tbody id="student-progress-table"></tbody>
+                    </table>
+                </div>
+            </section>
+            
+            <section id="mentor-profile" class="content-section hidden">
+                <h2 class="text-3xl font-bold mb-6 text-gray-800">My Profile and Co-Curricular Expertise</h2>
+                <form id="mentor-profile-form" class="bg-white p-6 rounded-xl shadow-md space-y-6 w-full max-w-lg">
+                    <h3 class="text-xl font-semibold text-gray-700 border-b pb-2">General Information</h3>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div><label class="block text-sm font-medium">Username</label><input type="text" id="mentor-profile-username" class="mt-1 w-full p-2 border rounded-md bg-gray-100" readonly></div>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-700 border-b pb-2 mt-6">Co-Curricular Expertise</h3>
+                    <p class="text-sm text-gray-600">List subjects, skills, or activities you can mentor students in (e.g., Coding Competitions, Robotics, Photography, NSS, Sports, etc.).</p>
+                    <div>
+                        <label for="mentor-expertise" class="block text-sm font-medium">Expertise Areas (Comma Separated)</label>
+                        <textarea id="mentor-expertise" name="coCurricularExpertise" rows="3" class="mt-1 w-full p-2 border rounded-md"></textarea>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 px-4 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition duration-150">Save My Profile</button>
+                    <p id="mentor-profile-save-msg" class="text-green-600 text-center"></p>
+                </form>
+            </section>
+
+            <section id="analysis-report" class="content-section hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-3xl font-bold text-gray-800">Analysis of Mentees</h2>
+                    <button id="print-report-btn" class="bg-gray-500 hover:bg-gray-700 text-white px-4 py-2 rounded-lg ml-4 hidden">
+                        Print Report
+                    </button>
+                    <div>
+                        <label for="student-select" class="mr-2 text-sm font-medium text-gray-700">Select Student to Analyze:</label>
+                        <select id="student-select" class="p-2 border rounded-md"></select>
+                    </div>
+                </div>
+                <div id="student-analysis-container" class="mb-8 min-h-[200px]"></div>
+                <h3 class="text-2xl font-bold text-gray-800 mb-4">Saved Analysis Reports</h3>
+                <div class="bg-white p-6 rounded-xl shadow-md overflow-x-auto">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr><th class="px-6 py-3">Roll No.</th><th class="px-6 py-3">Category</th><th class="px-6 py-3">Mentor's Remarks</th><th class="px-6 py-3">Actions</th></tr>
+                        </thead>
+                        <tbody id="analysis-reports-table"></tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="student-app" class="flex h-screen overflow-hidden hidden">
+    
+        <aside class="sidebar w-64 bg-white text-gray-800 flex-shrink-0 shadow-lg">
+            <div class="p-5 border-b border-gray-200">
+                <h1 class="text-xl font-bold text-indigo-600">Student Profile</h1>
+                <p id="student-sidebar-name" class="text-sm text-gray-700"></p>
+                <p id="student-sidebar-rollno" class="text-xs text-gray-500"></p>
+                <p id="student-sidebar-mentor" class="text-sm text-gray-600 mt-2"></p>
+            </div>
+            <nav class="mt-5 flex-1">
+                <a href="#" class="student-nav-link flex items-center py-3 px-5 text-gray-700 hover:bg-indigo-50 rounded-r-full" data-target="student-academic-form">Academic Profile</a>
+                <a href="#" class="student-nav-link flex items-center py-3 px-5 text-gray-700 hover:bg-indigo-50 rounded-r-full" data-target="student-cocu-form">Co-Curricular</a>
+            </nav>
+            <div class="p-5 border-t border-gray-200">
+                <button id="student-logout-btn" class="w-full flex items-center justify-center py-2 px-4 text-gray-700 hover:bg-red-50 rounded-lg">Logout</button>
+            </div>
+        </aside>
+
+        <main class="main-content flex-1 p-6 lg:p-8 overflow-y-auto">
+            
+            <section id="student-academic-form" class="student-content-section">
+                <h2 class="text-3xl font-bold mb-6 text-gray-800">My Academic Profile</h2>
+                <form id="academic-profile-form" class="bg-white p-6 rounded-xl shadow-md space-y-6">
+
+                    <h3 class="text-xl font-semibold text-gray-700 border-b pb-2">Semester Selection</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div>
+                            <label for="semester-select" class="block text-sm font-medium">Select Semester</label>
+                            <select id="semester-select" name="semester" class="mt-1 w-full p-2 border rounded-md focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50">
+                                <option value="even">Even Sem</option>
+                                <option value="odd">Odd Sem</option>
+                            </select>
+                        </div>
+                        <div><label class="block text-sm font-medium">Overall %</label><input type="number" name="attendanceOverall" disabled class="mt-1 w-full p-2 border rounded-md" placeholder="Overall Attendance %"></div>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-700 border-b pb-2">Attendance Below 75% (Number of Subjects)</h3>
+
+                    <div id="even-sem-attendance" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                        <div><label class="block text-sm font-medium">Jan</label><input type="number" name="attendanceSubjectsJan" disabled class="mt-1 w-full p-2 border rounded-md" placeholder="Subjects < 75%"></div>
+                        <div><label class="block text-sm font-medium">Feb</label><input type="number" name="attendanceSubjectsFeb" disabled class="mt-1 w-full p-2 border rounded-md" placeholder="Subjects < 75%"></div>
+                        <div><label class="block text-sm font-medium">Mar</label><input type="number" name="attendanceSubjectsMar" disabled class="mt-1 w-full p-2 border rounded-md" placeholder="Subjects < 75%"></div>
+                        <div><label class="block text-sm font-medium">Apr</label><input type="number" name="attendanceSubjectsApr" disabled class="mt-1 w-full p-2 border rounded-md" placeholder="Subjects < 75%"></div>
+                        <div><label class="block text-sm font-medium">May</label><input type="number" name="attendanceSubjectsMay" disabled class="mt-1 w-full p-2 border rounded-md" placeholder="Subjects < 75%"></div>
+                    </div>
+
+                    <div id="odd-sem-attendance" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 hidden">
+                        <div><label class="block text-sm font-medium">Jul</label><input type="number" name="attendanceSubjectsJul" disabled class="mt-1 w-full p-2 border rounded-md" placeholder="Subjects < 75%"></div>
+                        <div><label class="block text-sm font-medium">Aug</label><input type="number" name="attendanceSubjectsAug" disabled class="mt-1 w-full p-2 border rounded-md" placeholder="Subjects < 75%"></div>
+                        <div><label class="block text-sm font-medium">Sep</label><input type="number" name="attendanceSubjectsSep" disabled class="mt-1 w-full p-2 border rounded-md" placeholder="Subjects < 75%"></div>
+                        <div><label class="block text-sm font-medium">Oct</label><input type="number" name="attendanceSubjectsOct" disabled class="mt-1 w-full p-2 border rounded-md" placeholder="Subjects < 75%"></div>
+                        <div><label class="block text-sm font-medium">Nov</label><input type="number" name="attendanceSubjectsNov" disabled class="mt-1 w-full p-2 border rounded-md" placeholder="Subjects < 75%"></div>
+                    </div>
+                     disabled
+                    <div class="border-b border-gray-200"></div>
+
+                    <h3 class="text-xl font-semibold text-gray-700 border-b pb-2">Performance in Exams (Up to 8 Subjects)</h3>
+                    
+                    <div id="exam-subjects-container" class="space-y-6">
+                        
+                        <div class="exam-subject-block p-4 border border-gray-200 rounded-lg space-y-2">
+                            <h4 class="font-bold text-lg text-indigo-700">Subject 1</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                <div class="md:col-span-5"><label class="block text-sm font-medium">Course Name</label><input type="text" name="examCourseName1" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., Data Structures"></div>
+                                <div><label class="block text-sm font-medium">ISE I (Out of 40)</label><input type="number" name="examISE1_1" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">MSE (Out of 30)</label><input type="number" name="examMSE1" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">ESE (Out of 30)</label><input type="number" name="examESE1" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div class="md:col-span-2"><label class="block text-sm font-medium">Progress Noted</label><input type="text" name="examProgressNoted1" class="mt-1 w-full p-2 border rounded-md"></div>
+                            </div>
+                        </div>
+
+                        <div class="exam-subject-block p-4 border border-gray-200 rounded-lg space-y-2">
+                            <h4 class="font-bold text-lg text-indigo-700">Subject 2</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                <div class="md:col-span-5"><label class="block text-sm font-medium">Course Name</label><input type="text" name="examCourseName2" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., Object Oriented Programming"></div>
+                                <div><label class="block text-sm font-medium">ISE I (Out of 40)</label><input type="number" name="examISE1_2" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">MSE (Out of 30)</label><input type="number" name="examMSE2" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">ESE (Out of 30)</label><input type="number" name="examESE2" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div class="md:col-span-2"><label class="block text-sm font-medium">Progress Noted</label><input type="text" name="examProgressNoted2" class="mt-1 w-full p-2 border rounded-md"></div>
+                            </div>
+                        </div>
+                        
+                        <div class="exam-subject-block p-4 border border-gray-200 rounded-lg space-y-2">
+                            <h4 class="font-bold text-lg text-indigo-700">Subject 3</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                <div class="md:col-span-5"><label class="block text-sm font-medium">Course Name</label><input type="text" name="examCourseName3" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., Engineering Mathematics"></div>
+                                <div><label class="block text-sm font-medium">ISE I (Out of 40)</label><input type="number" name="examISE1_3" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">MSE (Out of 30)</label><input type="number" name="examMSE3" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">ESE (Out of 30)</label><input type="number" name="examESE3" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div class="md:col-span-2"><label class="block text-sm font-medium">Progress Noted</label><input type="text" name="examProgressNoted3" class="mt-1 w-full p-2 border rounded-md"></div>
+                            </div>
+                        </div>
+
+                        <div class="exam-subject-block p-4 border border-gray-200 rounded-lg space-y-2">
+                            <h4 class="font-bold text-lg text-indigo-700">Subject 4</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                <div class="md:col-span-5"><label class="block text-sm font-medium">Course Name</label><input type="text" name="examCourseName4" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., Digital Logic Design"></div>
+                                <div><label class="block text-sm font-medium">ISE I (Out of 40)</label><input type="number" name="examISE1_4" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">MSE (Out of 30)</label><input type="number" name="examMSE4" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">ESE (Out of 30)</label><input type="number" name="examESE4" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div class="md:col-span-2"><label class="block text-sm font-medium">Progress Noted</label><input type="text" name="examProgressNoted4" class="mt-1 w-full p-2 border rounded-md"></div>
+                            </div>
+                        </div>
+
+                        <div class="exam-subject-block p-4 border border-gray-200 rounded-lg space-y-2">
+                            <h4 class="font-bold text-lg text-indigo-700">Subject 5</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                <div class="md:col-span-5"><label class="block text-sm font-medium">Course Name</label><input type="text" name="examCourseName5" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., Database Management"></div>
+                                <div><label class="block text-sm font-medium">ISE I (Out of 40)</label><input type="number" name="examISE1_5" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">MSE (Out of 30)</label><input type="number" name="examMSE5" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">ESE (Out of 30)</label><input type="number" name="examESE5" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div class="md:col-span-2"><label class="block text-sm font-medium">Progress Noted</label><input type="text" name="examProgressNoted5" class="mt-1 w-full p-2 border rounded-md"></div>
+                            </div>
+                        </div>
+
+                        <div class="exam-subject-block p-4 border border-gray-200 rounded-lg space-y-2">
+                            <h4 class="font-bold text-lg text-indigo-700">Subject 6</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                <div class="md:col-span-5"><label class="block text-sm font-medium">Course Name</label><input type="text" name="examCourseName6" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., Theory of Computation"></div>
+                                <div><label class="block text-sm font-medium">ISE I (Out of 40)</label><input type="number" name="examISE1_6" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">MSE (Out of 30)</label><input type="number" name="examMSE6" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">ESE (Out of 30)</label><input type="number" name="examESE6" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div class="md:col-span-2"><label class="block text-sm font-medium">Progress Noted</label><input type="text" name="examProgressNoted6" class="mt-1 w-full p-2 border rounded-md"></div>
+                            </div>
+                        </div>
+
+                        <div class="exam-subject-block p-4 border border-gray-200 rounded-lg space-y-2">
+                            <h4 class="font-bold text-lg text-indigo-700">Subject 7</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                <div class="md:col-span-5"><label class="block text-sm font-medium">Course Name</label><input type="text" name="examCourseName7" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., Computer Networks"></div>
+                                <div><label class="block text-sm font-medium">ISE I (Out of 40)</label><input type="number" name="examISE1_7" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">MSE (Out of 30)</label><input type="number" name="examMSE7" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">ESE (Out of 30)</label><input type="number" name="examESE7" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div class="md:col-span-2"><label class="block text-sm font-medium">Progress Noted</label><input type="text" name="examProgressNoted7" class="mt-1 w-full p-2 border rounded-md"></div>
+                            </div>
+                        </div>
+
+                        <div class="exam-subject-block p-4 border border-gray-200 rounded-lg space-y-2">
+                            <h4 class="font-bold text-lg text-indigo-700">Subject 8</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                                <div class="md:col-span-5"><label class="block text-sm font-medium">Course Name</label><input type="text" name="examCourseName8" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., Elective Subject"></div>
+                                <div><label class="block text-sm font-medium">ISE I (Out of 40)</label><input type="number" name="examISE1_8" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">MSE (Out of 30)</label><input type="number" name="examMSE8" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div><label class="block text-sm font-medium">ESE (Out of 30)</label><input type="number" name="examESE8" class="mt-1 w-full p-2 border rounded-md"></div>
+                                <div class="md:col-span-2"><label class="block text-sm font-medium">Progress Noted</label><input type="text" name="examProgressNoted8" class="mt-1 w-full p-2 border rounded-md"></div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div class="mt-4"><label class="block text-sm font-medium">Mentor Observations (Read Only)</label><textarea name="observations" rows="3" class="mt-1 w-full p-2 border rounded-md bg-gray-100" readonly></textarea></div>
+                    
+                    <button type="submit" class="w-full py-3 px-4 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition duration-150">Save Academic Profile</button>
+                    <p id="academic-profile-save-msg" class="text-green-600 text-center"></p>
+                </form>
+            </section>
+
+            <section id="student-cocu-form" class="student-content-section hidden">
+                <h2 class="text-3xl font-bold mb-6 text-gray-800">My Co-Curricular & Extra-Curricular Profile</h2>
+                <form id="cocu-profile-form" class="bg-white p-6 rounded-xl shadow-md space-y-6">
+                    <h3 class="text-xl font-semibold text-gray-700 border-b pb-2">Technical Activities</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div><label class="block text-sm font-medium">NPTEL Course Completed</label><input type="text" name="nptel" class="mt-1 w-full p-2 border rounded-md" placeholder="e.g., Java Programming, Database Management"></div>
+                        <div><label class="block text-sm font-medium">Internship Details (Company/Duration)</label><input type="text" name="internship" class="mt-1 w-full p-2 border rounded-md"></div>
+                        <div><label class="block text-sm font-medium">Various Trainings/Certifications</label><input type="text" name="variousTrainings" class="mt-1 w-full p-2 border rounded-md"></div>
+                        <div><label class="block text-sm font-medium">Software/Language Proficiencies</label><input type="text" name="software" class="mt-1 w-full p-2 border rounded-md"></div>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-700 border-b pb-2 mt-6">Participation & Outreach</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div><label class="block text-sm font-medium">In-house Events/VAC</label><input type="text" name="inHouseEvents" class="mt-1 w-full p-2 border rounded-md"></div>
+                        <div><label class="block text-sm font-medium">Other Competitions/Events</label><input type="text" name="events" class="mt-1 w-full p-2 border rounded-md"></div>
+                        <div><label class="block text-sm font-medium">Workshop/Seminar Attended</label><input type="text" name="workshopSeminar" class="mt-1 w-full p-2 border rounded-md"></div>
+                        <div><label class="block text-sm font-medium">Sports / NSS / Cultural (Lakshya)</label><input type="text" name="nssCultural" class="mt-1 w-full p-2 border rounded-md"></div>
+                        <div><label class="block text-sm font-medium">Sports Participation (Specifics)</label><input type="text" name="sports" class="mt-1 w-full p-2 border rounded-md"></div>
+                    </div>
+
+                    <h3 class="text-xl font-semibold text-gray-700 border-b pb-2 mt-6">Mentor Feedback</h3>
+                    <div class="grid grid-cols-1 gap-4">
+                        <div class="mt-4"><label class="block text-sm font-medium">Mentor's Remarks/Advice (Read Only)</label><textarea name="mentorAdvice" rows="3" class="mt-1 w-full p-2 border rounded-md bg-gray-100" readonly></textarea></div>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 px-4 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition duration-150">Save Co-Curricular Profile</button>
+                    <p id="cocu-profile-save-msg" class="text-green-600 text-center"></p>
+                </form>
+            </section>
+
+        </main>
+    </div>
+
+    <div id="data-modal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h2 id="modal-title" class="text-2xl font-semibold text-gray-800">Modal Title</h2>
+                <button id="close-modal-btn" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form id="modal-form" class="space-y-4"></form>
+        </div>
+    </div>
+    
+    <div id="signup-modal" class="modal">
+        <div class="modal-content max-w-lg">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h2 class="text-2xl font-semibold text-gray-800">Student Sign Up</h2>
+                <button id="close-signup-btn" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <form id="signup-form" class="space-y-4">
+                <div>
+                    <label for="signup-rollno" class="block text-sm font-medium text-gray-700">Roll No.</label>
+                    <input id="signup-rollno" name="rollNo" type="text" required class="mt-1 w-full px-4 py-2 border rounded-md" placeholder="e.g., 2024005">
+                </div>
+                <div>
+                    <label for="signup-name" class="block text-sm font-medium text-gray-700">Full Name</label>
+                    <input id="signup-name" name="name" type="text" required class="mt-1 w-full px-4 py-2 border rounded-md" placeholder="e.g., Jane Doe">
+                </div>
+                <div>
+                    <label for="signup-batch" class="block text sm font-medium text-gray-700">Batch (e.g., B1, T2, S2)</label>
+                    <input id="signup-batch" name="batch" type="text" required class="mt-1 w-full px-4 py-2 border rounded-md" placeholder="e.g., b1">
+                </div>
+                <div>
+                    <label for="signup-year" class="block text-sm font-medium text-gray-700">Year</label>
+                    <select id="signup-year" name="year" required class="mt-1 w-full px-4 py-2 border rounded-md">
+                        <option value="1st">1st</option>
+                        <option value="2nd">2nd</option>
+                        <option value="3rd">3rd</option>
+                        <option value="4th">4th</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="signup-password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input id="signup-password" name="password" type="password" required class="mt-1 w-full px-4 py-2 border rounded-md">
+                </div>
+                <p id="signup-error" class="text-red-500 text-sm hidden"></p>
+                <button type="submit" class="w-full py-3 px-4 bg-indigo-600 text-white font-semibold rounded-lg">Sign Up</button>
+            </form>
+        </div>
+    </div>
+
+<script>
+    /* ========================= IndexedDB Database Setup ========================= */
+    const DB_NAME = 'MentoringSystemDB';
+    const DB_VERSION = 1;
+    let db;
+
+    // Initialize IndexedDB
+    function initializeDatabase() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                db = request.result;
+                resolve(db);
+            };
+
+            request.onupgradeneeded = (event) => {
+                db = event.target.result;
+                
+                // Create object stores if they don't exist
+                const stores = ['mentors', 'students', 'mentoringReports', 'academicProgress', 'studentProgress', 'analysisReports'];
+                stores.forEach(store => {
+                    if (!db.objectStoreNames.contains(store)) {
+                        if (store === 'mentors') {
+                            db.createObjectStore(store, { keyPath: 'username' });
+                        } else if (store === 'students') {
+                            db.createObjectStore(store, { keyPath: 'rollNo' });
+                        } else if (store === 'mentoringReports') {
+                            db.createObjectStore(store, { keyPath: 'meetingNo' });
+                        } else if (store === 'academicProgress' || store === 'studentProgress') {
+                            db.createObjectStore(store, { keyPath: 'rollNo' });
+                        } else if (store === 'analysisReports') {
+                            db.createObjectStore(store, { keyPath: 'rollNo' });
+                        }
+                    }
+                });
+            };
+        });
+    }
+
+    // Save data to IndexedDB
+    function saveToDatabase(storeName, data) {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([storeName], 'readwrite');
+            const store = transaction.objectStore(storeName);
+            const request = Array.isArray(data) ? 
+                data.forEach(item => store.put(item)) :
+                store.put(data);
+            
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+        });
+    }
+
+    // Save array of items
+    function saveArrayToDatabase(storeName, dataArray) {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([storeName], 'readwrite');
+            const store = transaction.objectStore(storeName);
+            
+            // Clear existing data
+            store.clear();
+            
+            // Add new data
+            dataArray.forEach(item => store.add(item));
+            
+            transaction.oncomplete = () => resolve();
+            transaction.onerror = () => reject(transaction.error);
+        });
+    }
+
+    // Load data from IndexedDB
+    function loadFromDatabase(storeName) {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([storeName], 'readonly');
+            const store = transaction.objectStore(storeName);
+            const request = store.getAll();
+            
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    // Load single item from IndexedDB
+    function loadSingleFromDatabase(storeName, key) {
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction([storeName], 'readonly');
+            const store = transaction.objectStore(storeName);
+            const request = store.get(key);
+            
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    // Initialize Database on page load
+    initializeDatabase().then(() => {
+        console.log('Database initialized successfully');
+        loadAllDataFromDatabase();
+    }).catch(err => {
+        console.error('Database initialization failed:', err);
+        console.log('Using in-memory data storage (data will be lost on page refresh)');
+    });
+
+    // Load all data from database
+    async function loadAllDataFromDatabase() {
+        try {
+            const [mentors, students, reports, academic, progress, analysis] = await Promise.all([
+                loadFromDatabase('mentors'),
+                loadFromDatabase('students'),
+                loadFromDatabase('mentoringReports'),
+                loadFromDatabase('academicProgress'),
+                loadFromDatabase('studentProgress'),
+                loadFromDatabase('analysisReports')
+            ]);
+
+            mentorData = mentors.length > 0 ? mentors : mentorData;
+            studentData = students.length > 0 ? students : studentData;
+            mentoringReports = reports.length > 0 ? reports : mentoringReports;
+            academicProgressData = academic.length > 0 ? academic : academicProgressData;
+            studentProgressData = progress.length > 0 ? progress : studentProgressData;
+            individualAnalysisReports = analysis.length > 0 ? analysis : individualAnalysisReports;
+            
+            console.log('Data loaded from database');
+        } catch (err) {
+            console.error('Error loading data from database:', err);
+        }
+    }
+
+    // Save functions for each data type
+    function saveMentorsToDB() {
+        return saveArrayToDatabase('mentors', mentorData);
+    }
+
+    function saveStudentsToDB() {
+        return saveArrayToDatabase('students', studentData);
+    }
+
+    function saveMentoringReportsToB() {
+        return saveArrayToDatabase('mentoringReports', mentoringReports);
+    }
+
+    function saveAcademicProgressToB() {
+        return saveArrayToDatabase('academicProgress', academicProgressData);
+    }
+
+    function saveStudentProgressToB() {
+        return saveArrayToDatabase('studentProgress', studentProgressData);
+    }
+
+    function saveAnalysisReportsToB() {
+        return saveArrayToDatabase('analysisReports', individualAnalysisReports);
+    }
+
+    // Save all data to database
+    async function saveAllToDatabase() {
+        try {
+            await Promise.all([
+                saveMentorsToB(),
+                saveStudentsToB(),
+                saveMentoringReportsToB(),
+                saveAcademicProgressToB(),
+                saveStudentProgressToB(),
+                saveAnalysisReportsToB()
+            ]);
+        } catch (err) {
+            console.error('Error saving data to database:', err);
+        }
+    }
+
+    /* Mock Data Store ========================= */
+    const adminCredentials = { username: 'admin', password: 'password' };
+
+    // MODIFIED: Added coCurricularExpertise to mentorData
+    let mentorData = [
+       
+    ];
+
+    let studentData = [
+       
+    ];
+
+    let mentoringReports = [
+        
+    ];
+
+    let academicProgressData = [
+       
+    ];
+    
+    let studentProgressData = [
+       
+    ];
+
+    let individualAnalysisReports = [
+        //{ rollNo: '2021001', category: 'Bright', remarks: 'Alice is a top performer. No specific concerns.', date: '2025-11-15' },
+        //{ rollNo: '2021002', category: 'Weak', remarks: 'Bob needs mandatory academic counseling and a plan to clear backlogs.', date: '2025-11-15' },
+    ];
+
+
+    /* Global state */
+    let attendanceChartInstance = null;
+    let analysisPieChartInstance = null;
+    let currentStudentRollNo = null;
+    let currentMentorUsername = null;
+
+    /* DOM elements */
+    const loginPage = document.getElementById('login-page');
+    const appPage = document.getElementById('app');
+    const studentAppPage = document.getElementById('student-app');
+    const adminAppPage = document.getElementById('admin-app');
+
+    /* Auth forms */
+    const adminLoginForm = document.getElementById('admin-login-form');
+    const adminLoginError = document.getElementById('admin-login-error');
+    const loginForm = document.getElementById('login-form');
+    const loginError = document.getElementById('login-error');
+    const studentLoginForm = document.getElementById('student-login');
+    const studentLoginError = document.getElementById('student-login-error');
+    const signupModal = document.getElementById('signup-modal');
+    const signupForm = document.getElementById('signup-form');
+    const signupError = document.getElementById('signup-error');
+    const showSignupBtn = document.getElementById('show-signup-btn');
+    const closeSignupBtn = document.getElementById('close-signup-btn');
+
+    /* ------------------------- Authentication handlers ------------------------- */
+    adminLoginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = adminLoginForm.username.value;
+        const password = adminLoginForm.password.value;
+        if (username === adminCredentials.username && password === adminCredentials.password) {
+            loginPage.classList.add('hidden');
+            adminAppPage.classList.remove('hidden');
+            initializeAppAdmin();
+        } else {
+            adminLoginError.classList.remove('hidden');
+        }
+    });
+
+    loginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = loginForm.username.value;
+        const password = loginForm.password.value;
+        const mentor = mentorData.find(m => m.username === username && m.password === password);
+        if (mentor) {
+            currentMentorUsername = mentor.username;
+            loginPage.classList.add('hidden');
+            appPage.classList.remove('hidden');
+            initializeApp();
+        } else {
+            loginError.classList.remove('hidden');
+        }
+    });
+
+    studentLoginForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const rollNo = studentLoginForm.rollNo.value;
+        const password = studentLoginForm.password.value;
+        const student = studentData.find(s => s.rollNo === rollNo && s.password === password);
+        if (student) {
+            currentStudentRollNo = student.rollNo;
+            loginPage.classList.add('hidden');
+            studentAppPage.classList.remove('hidden');
+            initializeStudentApp(student);
+        } else {
+            studentLoginError.classList.remove('hidden');
+        }
+    });
+
+    document.getElementById('logout-btn').addEventListener('click', () => {
+        appPage.classList.add('hidden');
+        loginPage.classList.remove('hidden');
+        currentMentorUsername = null;
+        loginForm.reset();
+        document.querySelector('.nav-link[data-target="dashboard"]').click();
+    });
+
+    document.getElementById('admin-logout-btn').addEventListener('click', () => {
+        adminAppPage.classList.add('hidden');
+        loginPage.classList.remove('hidden');
+        adminLoginForm.reset();
+        document.querySelector('.admin-nav-link[data-target="admin-manage-mentors"]').click();
+    });
+
+    document.getElementById('student-logout-btn').addEventListener('click', () => {
+        studentAppPage.classList.add('hidden');
+        loginPage.classList.remove('hidden');
+        currentStudentRollNo = null;
+        studentLoginForm.reset();
+    });
+
+    /* Signup handlers */
+    showSignupBtn.addEventListener('click', () => {
+        signupModal.style.display = 'flex';
+    });
+
+    closeSignupBtn.addEventListener('click', () => {
+        signupModal.style.display = 'none';
+        signupForm.reset();
+        signupError.classList.add('hidden');
+    });
+
+    signupForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const newStudent = Object.fromEntries(formData.entries());
+        newStudent.mentorUsername = 'unassigned'; // Default assignment status
+
+        // Simple validation
+        if (studentData.some(s => s.rollNo === newStudent.rollNo)) {
+            signupError.textContent = 'A student with this Roll No. already exists.';
+            signupError.classList.remove('hidden');
+            return;
+        }
+
+        studentData.push(newStudent);
+        saveStudentsToDB();
+        signupModal.style.display = 'none';
+        studentLoginForm.rollNo.value = newStudent.rollNo;
+        studentLoginForm.password.value = newStudent.password;
+        studentLoginError.classList.add('hidden');
+        alert('Sign up successful! Please log in.');
+    });
+
+
+    /* ------------------------- Navigation handlers ------------------------- */
+    document.querySelectorAll('.admin-nav-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetId = link.getAttribute('data-target');
+            document.querySelectorAll('.admin-content-section').forEach(section => section.classList.toggle('hidden', section.id !== targetId));
+            document.querySelectorAll('.admin-nav-link').forEach(l => l.classList.remove('bg-indigo-50', 'text-indigo-600', 'font-semibold'));
+            link.classList.add('bg-indigo-50', 'text-indigo-600', 'font-semibold');
+
+            // Re-render data tables when navigating
+            if (targetId === 'admin-manage-mentors') {
+                renderMentorTable();
+            } else if (targetId === 'admin-manage-students') {
+                renderAllStudentsTable();
+            } else if (targetId === 'admin-assign-students') {
+                populateAssignmentDropdowns();
+            }
+        });
+    });
+
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetId = link.getAttribute('data-target');
+
+            // initialize the Mentor Profile form
+            if (targetId === 'mentor-profile') {
+                initializeMentorProfileForm(currentMentorUsername);
+            }
+            if (targetId === 'analysis-report') {
+                populateStudentSelector();
+                document.getElementById('student-analysis-container').innerHTML = ''; // Clear previous report
+                document.getElementById('print-report-btn').classList.add('hidden');
+            }
+
+            document.querySelectorAll('.content-section').forEach(section => section.classList.toggle('hidden', section.id !== targetId));
+            document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('bg-indigo-50', 'text-indigo-600', 'font-semibold'));
+            link.classList.add('bg-indigo-50', 'text-indigo-600', 'font-semibold');
+        });
+    });
+
+    document.querySelectorAll('.student-nav-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const targetId = link.getAttribute('data-target');
+            document.querySelectorAll('.student-content-section').forEach(section => section.classList.toggle('hidden', section.id !== targetId));
+            document.querySelectorAll('.student-nav-link').forEach(l => l.classList.remove('bg-indigo-50', 'text-indigo-600', 'font-semibold'));
+            link.classList.add('bg-indigo-50', 'text-indigo-600', 'font-semibold');
+        });
+    });
+
+    /* ------------------------- Modal utilities ------------------------- */
+    const modal = document.getElementById('data-modal');
+    const modalTitle = document.getElementById('modal-title');
+    let modalForm = document.getElementById('modal-form'); // Use 'let' here to allow reassignment
+    const closeModalBtn = document.getElementById('close-modal-btn');
+
+    closeModalBtn.addEventListener('click', () => {
+        modal.style.display = 'none';
+        modalForm.innerHTML = '';
+    });
+
+    function showModal(title, contentHTML, submitHandler) {
+        modalTitle.textContent = title;
+        
+        // Safety: Replace the form element to clear old event listeners
+        const newForm = document.createElement('form');
+        newForm.id = 'modal-form';
+        newForm.className = 'space-y-4';
+        newForm.innerHTML = contentHTML;
+        modalForm.parentNode.replaceChild(newForm, modalForm);
+        modalForm = newForm; // Re-assign global variable
+
+        modalForm.addEventListener('submit', function handler(e) {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            submitHandler(formData);
+            modal.style.display = 'none';
+        });
+
+        modal.style.display = 'flex';
+    }
+
+    /* ------------------------- Admin functions ------------------------- */
+    function initializeAppAdmin() {
+        document.querySelector('.admin-nav-link[data-target="admin-manage-mentors"]').classList.add('bg-indigo-50', 'text-indigo-600', 'font-semibold');
+        renderMentorTable();
+        renderAllStudentsTable();
+        populateAssignmentDropdowns();
+    }
+
+    function deleteMentor(username) {
+        if (!confirm(`Are you sure you want to delete mentor: ${username}? This will unassign all their students.`)) {
+            return;
+        }
+        mentorData = mentorData.filter(m => m.username !== username);
+        
+        studentData.forEach(student => {
+            if (student.mentorUsername === username) {
+                student.mentorUsername = 'unassigned';
+                academicProgressData = academicProgressData.filter(d => d.rollNo !== student.rollNo);
+                studentProgressData = studentProgressData.filter(d => d.rollNo !== student.rollNo);
+                individualAnalysisReports = individualAnalysisReports.filter(r => r.rollNo !== student.rollNo);
+            }
+        });
+        
+        saveAllToDatabase();
+        renderMentorTable();
+        renderAllStudentsTable();
+        populateAssignmentDropdowns(); 
+        
+        alert(`Mentor ${username} and their assignments have been deleted.`);
+    }
+
+    function renderMentorTable() {
+        const tableBody = document.getElementById('mentor-list-table');
+        tableBody.innerHTML = mentorData.map(mentor => `
+            <tr class="bg-white border-b hover:bg-gray-50">
+                <td class="px-6 py-4 font-medium text-gray-900">${mentor.username}</td>
+                <td class="px-6 py-4">${mentor.password}</td>
+                <td class="px-6 py-4">
+                    <button class="text-red-600 hover:underline delete-mentor-btn" data-username="${mentor.username}">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+
+        document.querySelectorAll('.delete-mentor-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const username = e.target.getAttribute('data-username');
+                deleteMentor(username);
+            });
+        });
+    }
+
+    function renderAllStudentsTable() {
+        const tableBody = document.getElementById('student-list-table');
+        tableBody.innerHTML = studentData.map(student => `
+            <tr class="bg-white border-b hover:bg-gray-50">
+                <td class="px-6 py-4 font-medium text-gray-900">${student.rollNo}</td>
+                <td class="px-6 py-4">${student.name}</td>
+                <td class="px-6 py-4">${student.batch}</td>
+                <td class="px-6 py-4">${student.year}</td>
+                <td class="px-6 py-4">${student.password}</td>
+                <td class="px-6 py-4 text-indigo-600">${student.mentorUsername}</td>
+            </tr>
+        `).join('');
+    }
+
+    function populateAssignmentDropdowns() {
+        const mentorSelect = document.getElementById('assign-mentor-select');
+        const batchSelect = document.getElementById('assign-batch-select');
+
+        mentorSelect.innerHTML = '<option value="">-- Select Mentor --</option>' +
+            mentorData.map(m => `<option value="${m.username}">${m.username}</option>`).join('');
+
+        const uniqueBatches = [...new Set(studentData.map(s => s.batch))].sort();
+        batchSelect.innerHTML = '<option value="">-- Select Batch --</option>' +
+            uniqueBatches.map(b => `<option value="${b}">${b}</option>`).join('');
+    }
+
+    document.getElementById('create-mentor-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const username = e.target.username.value.trim();
+        const password = e.target.password.value;
+        const errorMsg = document.getElementById('create-mentor-error');
+
+        if (mentorData.some(m => m.username === username)) {
+            errorMsg.textContent = 'Error: Mentor username already exists.';
+            errorMsg.classList.remove('hidden');
+            return;
+        }
+
+        mentorData.push({ username, password, coCurricularExpertise: '' });
+        saveMentorsToDB();
+        e.target.reset();
+        errorMsg.textContent = 'Mentor created successfully!';
+        errorMsg.classList.remove('hidden');
+        errorMsg.classList.add('text-green-500');
+        setTimeout(() => {
+            errorMsg.classList.add('hidden');
+            errorMsg.classList.remove('text-green-500');
+        }, 3000);
+        renderMentorTable();
+        populateAssignmentDropdowns();
+    });
+
+    document.getElementById('assign-by-batch-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const mentorUsername = e.target.mentorUsername.value;
+        const batch = e.target.batch.value;
+        const year = e.target.year.value;
+        let studentsAssigned = 0;
+
+        studentData.forEach(student => {
+            const batchMatch = batch === '' || student.batch === batch;
+            const yearMatch = year === '' || student.year === year;
+
+            if (batchMatch && yearMatch && student.mentorUsername !== mentorUsername) {
+                student.mentorUsername = mentorUsername;
+                studentsAssigned++;
+            }
+        });
+
+        saveStudentsToDB();
+        renderAllStudentsTable();
+        const msg = document.getElementById('assign-success-msg');
+        msg.textContent = `Successfully assigned ${studentsAssigned} students to ${mentorUsername}.`;
+        setTimeout(() => msg.textContent = '', 4000);
+        e.target.reset();
+    });
+
+    document.getElementById('auto-assign-btn').addEventListener('click', () => {
+        const unassignedStudents = studentData.filter(s => s.mentorUsername === 'unassigned');
+        const mentors = mentorData.map(m => m.username);
+        
+        if (mentors.length === 0) {
+            alert('No mentors available for automatic assignment.');
+            return;
+        }
+
+        const studentsToAssign = unassignedStudents.slice().sort((a, b) => a.batch.localeCompare(b.batch));
+
+        let mentorIndex = 0;
+        studentsToAssign.forEach(student => {
+            student.mentorUsername = mentors[mentorIndex];
+            mentorIndex = (mentorIndex + 1) % mentors.length;
+        });
+        
+        saveStudentsToDB();
+        renderAllStudentsTable();
+        const msg = document.getElementById('assign-success-msg');
+        msg.textContent = `Successfully auto-assigned ${studentsToAssign.length} students to available mentors.`;
+        setTimeout(() => msg.textContent = '', 4000);
+    });
+
+    /* ------------------------- Mentor functions ------------------------- */
+    function initializeApp() {
+        const assignedStudents = studentData.filter(s => s.mentorUsername === currentMentorUsername);
+        
+        document.querySelector('.nav-link[data-target="dashboard"]').classList.add('bg-indigo-50', 'text-indigo-600', 'font-semibold');
+        
+        setupDashboard(assignedStudents);
+        renderMentoringReportTable();
+        renderAcademicProgressTable();
+        renderStudentProgressTable();
+        populateStudentSelector();
+        renderAnalysisReportsTable();
+    }
+
+    function deleteStudent(rollNo) {
+        if (!currentMentorUsername) {
+            alert("Error: No mentor logged in.");
+            return;
+        }
+
+        const studentToDelete = studentData.find(s => s.rollNo === rollNo);
+        if (!studentToDelete || studentToDelete.mentorUsername !== currentMentorUsername) {
+            alert("Error: Student not found or not assigned to you.");
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to delete student: ${studentToDelete.name} (${rollNo})? This is irreversible and removes ALL records.`)) {
+            return;
+        }
+
+        studentData = studentData.filter(s => s.rollNo !== rollNo);
+
+        academicProgressData = academicProgressData.filter(d => d.rollNo !== rollNo);
+        studentProgressData = studentProgressData.filter(d => d.rollNo !== rollNo);
+        individualAnalysisReports = individualAnalysisReports.filter(r => r.rollNo !== rollNo);
+        mentoringReports.forEach(report => {
+            report.studentsPresent = report.studentsPresent.filter(r => r !== rollNo);
+            report.present = report.studentsPresent.length;
+        });
+
+        saveAllToDatabase();
+        const assignedStudents = studentData.filter(s => s.mentorUsername === currentMentorUsername);
+        setupDashboard(assignedStudents);
+        renderMentoringReportTable();
+        renderAcademicProgressTable();
+        renderStudentProgressTable();
+        renderAnalysisReportsTable();
+        populateStudentSelector();
+
+        alert(`Student ${rollNo} and all related records have been deleted.`);
+    }
+
+    function initializeMentorProfileForm(username) {
+        const mentor = mentorData.find(m => m.username === username);
+        document.getElementById('mentor-profile-username').value = mentor.username;
+        document.getElementById('mentor-expertise').value = mentor.coCurricularExpertise || '';
+        document.getElementById('mentor-profile-save-msg').textContent = '';
+    }
+
+    document.getElementById('mentor-profile-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const expertise = e.target.coCurricularExpertise.value;
+        const index = mentorData.findIndex(m => m.username === currentMentorUsername);
+        if (index !== -1) {
+            mentorData[index].coCurricularExpertise = expertise;
+            saveMentorsToDB();
+            const msg = document.getElementById('mentor-profile-save-msg');
+            msg.textContent = 'Mentor Profile saved successfully!';
+            setTimeout(() => msg.textContent = '', 3000);
+        }
+    });
+
+    function setupDashboard(assignedStudents) {
+        document.getElementById('total-students').textContent = assignedStudents.length;
+
+        const analysisCounts = assignedStudents.reduce((acc, student) => {
+            const report = individualAnalysisReports.find(r => r.rollNo === student.rollNo);
+            const category = report ? report.category : 'Uncategorized';
+            acc[category] = (acc[category] || 0) + 1;
+            return acc;
+        }, { 'Bright': 0, 'Average': 0, 'Weak': 0, 'Uncategorized': 0 });
+
+        document.getElementById('bright-students').textContent = analysisCounts['Bright'];
+        document.getElementById('average-students').textContent = analysisCounts['Average'];
+        document.getElementById('weak-students').textContent = analysisCounts['Weak'];
+
+        renderAttendanceChart();
+        renderAnalysisPieChart(analysisCounts);
+    }
+
+    function renderAttendanceChart() {
+        if (attendanceChartInstance) attendanceChartInstance.destroy();
+
+        const data = {
+            labels: ['Meeting 1', 'Meeting 2', 'Meeting 3', 'Meeting 4'],
+            datasets: [{
+                label: 'Attendance Count',
+                data: mentoringReports.map(r => r.present),
+                backgroundColor: 'rgba(79, 70, 229, 0.6)',
+                borderColor: 'rgb(79, 70, 229)',
+                borderWidth: 1
+            }]
+        };
+
+        attendanceChartInstance = new Chart(document.getElementById('attendanceChart'), {
+            type: 'bar',
+            data: data,
+            options: {
+                responsive: true,
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    function renderAnalysisPieChart(counts) {
+        if (analysisPieChartInstance) analysisPieChartInstance.destroy();
+
+        const data = {
+            labels: ['Bright', 'Average', 'Weak', 'Uncategorized'],
+            datasets: [{
+                data: [counts['Bright'], counts['Average'], counts['Weak'], counts['Uncategorized']],
+                backgroundColor: [
+                    'rgb(16, 185, 129)', 
+                    'rgb(251, 191, 36)', 
+                    'rgb(239, 68, 68)', 
+                    'rgb(156, 163, 175)'
+                ],
+                hoverOffset: 4
+            }]
+        };
+
+        analysisPieChartInstance = new Chart(document.getElementById('analysisPieChart'), {
+            type: 'pie',
+            data: data,
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    title: {
+                        display: false,
+                        text: 'Student Analysis Distribution'
+                    }
+                }
+            }
+        });
+    }
+    
+    /* Mentoring Report (Mentor) */
+    function renderMentoringReportTable() {
+        const tableBody = document.getElementById('mentoring-report-table');
+        const assignedStudents = studentData.filter(s => s.mentorUsername === currentMentorUsername);
+        const totalAssigned = assignedStudents.length;
+
+        tableBody.innerHTML = mentoringReports.map(report => {
+            const absentCount = totalAssigned - report.present;
+            return `
+                <tr class="bg-white border-b hover:bg-gray-50">
+                    <td class="px-6 py-4">${report.meetingNo}</td>
+                    <td class="px-6 py-4">${report.date}</td>
+                    <td class="px-6 py-4">${report.agenda}</td>
+                    <td class="px-6 py-4 text-green-600">${report.present} / ${totalAssigned}</td>
+                    <td class="px-6 py-4 text-red-600">${absentCount} / ${totalAssigned}</td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    document.getElementById('add-meeting-btn').addEventListener('click', () => {
+        const students = studentData.filter(s => s.mentorUsername === currentMentorUsername);
+        const studentsList = students.map(s => `
+            <div class="flex items-center">
+                <input type="checkbox" id="student-${s.rollNo}" name="present" value="${s.rollNo}" class="h-4 w-4 text-indigo-600 border-gray-300 rounded">
+                <label for="student-${s.rollNo}" class="ml-3 text-sm text-gray-700">${s.name} (${s.rollNo})</label>
+            </div>
+        `).join('');
+
+        const formHTML = `
+            <div><label class="block text-sm font-medium">Date</label><input type="date" name="date" class="mt-1 w-full p-2 border rounded-md" required value="${new Date().toISOString().split('T')[0]}"></div>
+            <div><label class="block text-sm font-medium">Agenda</label><input type="text" name="agenda" class="mt-1 w-full p-2 border rounded-md" required></div>
+            <h4 class="text-md font-semibold mt-4">Mark Attendance (Present)</h4>
+            <div class="space-y-2">${studentsList}</div>
+            <button type="submit" class="w-full mt-4 py-2 px-4 bg-indigo-600 text-white rounded-lg">Save Meeting Report</button>
+        `;
+
+        showModal('Add New Mentoring Meeting', formHTML, (formData) => {
+            const presentStudents = formData.getAll('present');
+            const newReport = {
+                meetingNo: mentoringReports.length + 1,
+                date: formData.get('date'),
+                agenda: formData.get('agenda'),
+                present: presentStudents.length,
+                absent: students.length - presentStudents.length,
+                studentsPresent: presentStudents
+            };
+            mentoringReports.push(newReport);
+            saveMentoringReportsToB();
+            renderMentoringReportTable();
+            setupDashboard(students);
+        });
+    });
+
+    /* Academic Progress (Mentor) */
+    function openAcademicProgressModal(rollNo) {
+        const student = studentData.find(s => s.rollNo === rollNo);
+        const existingData = academicProgressData.find(d => d.rollNo === rollNo) || {};
+        const currentSemester = existingData.semester || 'even'; // Default to even
+
+        const attendanceMonthsEven = ['Jan', 'Feb', 'Mar', 'Apr', 'May'];
+        const attendanceMonthsOdd = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov'];
+
+        const renderMonthInputs = (months) => months.map(month => `
+            <div>
+                <label class="block text-sm font-medium">${month}</label>
+                <input type="number" name="attendanceSubjects${month}" class="mt-1 w-full p-2 border rounded-md" 
+                    placeholder="Subjects < 75%" value="${existingData[`attendanceSubjects${month}`] || ''}">
+            </div>
+        `).join('');
+        
+        let examInputs = '';
+        for (let i = 1; i <= 8; i++) {
+            examInputs += `
+                <h4 class="font-bold text-lg text-indigo-700 mt-4">Subject ${i}</h4>
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div class="md:col-span-5"><label class="block text-sm font-medium">Course Name</label><input type="text" name="examCourseName${i}" class="mt-1 w-full p-2 border rounded-md" value="${existingData[`examCourseName${i}`] || ''}"></div>
+                    <div><label class="block text sm font-medium">ISE I (40)</label><input type="number" name="examISE1_${i}" class="mt-1 w-full p-2 border rounded-md" value="${existingData[`examISE1_${i}`] || ''}"></div>
+                    <div><label class="block text-sm font-medium">MSE (30)</label><input type="number" name="examMSE${i}" class="mt-1 w-full p-2 border rounded-md" value="${existingData[`examMSE${i}`] || ''}"></div>
+                    <div><label class="block text-sm font-medium">ESE (30)</label><input type="number" name="examESE${i}" class="mt-1 w-full p-2 border rounded-md" value="${existingData[`examESE${i}`] || ''}"></div>
+                    <div class="md:col-span-2"><label class="block text-sm font-medium">Progress Noted</label><input type="text" name="examProgressNoted${i}" class="mt-1 w-full p-2 border rounded-md" value="${existingData[`examProgressNoted${i}`] || ''}"></div>
+                </div>
+            `;
+        }
+
+        const formHTML = `
+            <input type="hidden" name="rollNo" value="${rollNo}">
+            <h3 class="text-xl font-semibold text-gray-700 border-b pb-2 mb-4">${student.name} (${rollNo}) - Academic Progress</h3>
+
+            <h4 class="font-bold text-md text-gray-700">Semester & Overall Attendance:</h4>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label for="modal-semester-select" class="block text-sm font-medium">Select Semester</label>
+                    <select id="modal-semester-select" name="semester" class="mt-1 w-full p-2 border rounded-md">
+                        <option value="even" ${currentSemester === 'even' ? 'selected' : ''}>Even Sem</option>
+                        <option value="odd" ${currentSemester === 'odd' ? 'selected' : ''}>Odd Sem</option>
+                    </select>
+                </div>
+                <div><label class="block text-sm font-medium">Overall Attendance (%)</label><input type="number" name="attendanceOverall" class="mt-1 w-full p-2 border rounded-md" value="${existingData.attendanceOverall || ''}"></div>
+            </div>
+            
+            <h4 class="font-bold text-md text-gray-700 mt-6">Attendance Below 75% (Number of Subjects)</h4>
+            
+            <div id="modal-attendance-months-container" class="space-y-4">
+                <div id="modal-even-sem-attendance" class="grid grid-cols-2 md:grid-cols-5 gap-4 ${currentSemester === 'odd' ? 'hidden' : ''}">
+                    ${renderMonthInputs(attendanceMonthsEven)}
+                </div>
+                <div id="modal-odd-sem-attendance" class="grid grid-cols-2 md:grid-cols-5 gap-4 ${currentSemester === 'even' ? 'hidden' : ''}">
+                    ${renderMonthInputs(attendanceMonthsOdd)}
+                </div>
+            </div>
+
+            <h4 class="font-bold text-md text-gray-700 mt-6 border-t pt-4">Exam Performance (Marks):</h4>
+            ${examInputs}
+            
+            <div class="mt-6 border-t pt-4">
+                <label class="block text-sm font-medium">Mentor Observations</label>
+                <textarea name="observations" rows="3" class="mt-1 w-full p-2 border rounded-md">${existingData.observations || ''}</textarea>
+            </div>
+            <button type="submit" class="w-full mt-4 py-2 px-4 bg-indigo-600 text-white rounded-lg">Save Academic Record</button>
+        `;
+
+        showModal('Update Academic Progress', formHTML, (formData) => {
+            const data = { rollNo: rollNo, name: student.name };
+            formData.forEach((value, key) => data[key] = value);
+
+            const index = academicProgressData.findIndex(d => d.rollNo === rollNo);
+            if (index !== -1) {
+                academicProgressData[index] = { ...academicProgressData[index], ...data };
+            } else {
+                academicProgressData.push(data);
+            }
+            saveAcademicProgressToB();
+            renderAcademicProgressTable();
+            setupDashboard(studentData.filter(s => s.mentorUsername === currentMentorUsername));
+        });
+
+        setTimeout(() => { 
+            const modalSemesterSelect = document.getElementById('modal-semester-select');
+            const modalEvenMonths = document.getElementById('modal-even-sem-attendance');
+            const modalOddMonths = document.getElementById('modal-odd-sem-attendance');
+
+            if (modalSemesterSelect) {
+                modalSemesterSelect.addEventListener('change', (e) => {
+                    const selected = e.target.value;
+                    if (selected === 'odd') {
+                        modalEvenMonths.classList.add('hidden');
+                        modalOddMonths.classList.remove('hidden');
+                    } else {
+                        modalEvenMonths.classList.remove('hidden');
+                        modalOddMonths.classList.add('hidden');
+                    }
+                });
+            }
+        }, 0);
+    }
+
+    function renderAcademicProgressTable() {
+        const assignedRollNos = studentData.filter(s => s.mentorUsername === currentMentorUsername).map(s => s.rollNo);
+
+        const assignedAcademicData = assignedRollNos.map(rollNo => {
+            const student = studentData.find(s => s.rollNo === rollNo);
+            const progress = academicProgressData.find(s => s.rollNo === rollNo);
+            return {
+                rollNo: student.rollNo,
+                name: student.name,
+                attendanceOverall: progress?.attendanceOverall,
+                examProgressNoted: progress?.examProgressNoted1 || progress?.examProgressNoted2 || progress?.examProgressNoted3 || progress?.examProgressNoted4 || progress?.examProgressNoted5 || progress?.examProgressNoted6 || progress?.examProgressNoted7 || progress?.examProgressNoted8
+            };
+        });
+
+        const tableBody = document.getElementById('academic-progress-table');
+        tableBody.innerHTML = assignedAcademicData.map(student => `
+            <tr class="bg-white border-b hover:bg-gray-50">
+                <td class="px-6 py-4 font-medium text-gray-900">${student.rollNo}</td>
+                <td class="px-6 py-4">${student.name || 'N/A'}</td>
+                <td class="px-6 py-4">${student.attendanceOverall || 'N/A'}%</td>
+                <td class="px-6 py-4">${student.examProgressNoted || 'N/A'}</td>
+                <td class="px-6 py-4">
+                    <button class="text-indigo-600 hover:underline edit-academic-btn" data-rollno="${student.rollNo}">Edit</button>
+                    <button class="text-red-600 hover:underline delete-student-btn ml-3" data-rollno="${student.rollNo}">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+
+        document.querySelectorAll('.edit-academic-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const rollNo = e.target.getAttribute('data-rollno');
+                openAcademicProgressModal(rollNo);
+            });
+        });
+
+        document.querySelectorAll('.delete-student-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const rollNo = e.target.getAttribute('data-rollno');
+                deleteStudent(rollNo);
+            });
+        });
+    }
+
+    /* Student Progress (Mentor) */
+    function renderStudentProgressTable() {
+        const assignedRollNos = studentData.filter(s => s.mentorUsername === currentMentorUsername).map(s => s.rollNo);
+
+        const assignedProgressData = assignedRollNos.map(rollNo => {
+            const student = studentData.find(s => s.rollNo === rollNo);
+            const progress = studentProgressData.find(s => s.rollNo === rollNo);
+            return {
+                rollNo: student.rollNo,
+                name: student.name,
+                nptel: progress?.nptel || 'N/A',
+                internship: progress?.internship || 'N/A',
+                events: progress?.events || 'N/A'
+            };
+        });
+
+        const tableBody = document.getElementById('student-progress-table');
+        tableBody.innerHTML = assignedProgressData.map(student => `
+            <tr class="bg-white border-b hover:bg-gray-50">
+                <td class="px-6 py-4 font-medium text-gray-900">${student.rollNo}</td>
+                <td class="px-6 py-4">${student.name || 'N/A'}</td>
+                <td class="px-6 py-4">${student.nptel}</td>
+                <td class="px-6 py-4">${student.internship}</td>
+                <td class="px-6 py-4">${student.events}</td>
+                <td class="px-6 py-4">
+                    <button class="text-indigo-600 hover:underline edit-cocu-btn" data-rollno="${student.rollNo}">Edit</button>
+                    <button class="text-red-600 hover:underline delete-student-btn ml-3" data-rollno="${student.rollNo}">Delete</button>
+                </td>
+            </tr>
+        `).join('');
+
+        document.querySelectorAll('.edit-cocu-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const rollNo = e.target.getAttribute('data-rollno');
+                openStudentProgressModal(rollNo);
+            });
+        });
+
+        document.querySelectorAll('.delete-student-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const rollNo = e.target.getAttribute('data-rollno');
+                deleteStudent(rollNo);
+            });
+        });
+    }
+
+    document.getElementById('add-academic-record-btn').addEventListener('click', () => {
+        const students = studentData.filter(s => s.mentorUsername === currentMentorUsername && !academicProgressData.some(d => d.rollNo === s.rollNo));
+        if (students.length === 0) {
+            alert('All assigned students have academic records. Use the "Edit" button to modify existing records.');
+            return;
+        }
+
+        const studentOptions = students.map(s => `<option value="${s.rollNo}">${s.name} (${s.rollNo})</option>`).join('');
+
+        const formHTML = `
+            <div>
+                <label class="block text-sm font-medium">Select Student</label>
+                <select name="rollNo" id="select-student-academic" class="mt-1 w-full p-2 border rounded-md" required>
+                    <option value="">-- Select Student --</option>
+                    ${studentOptions}
+                </select>
+            </div>
+            <div><label class="block text-sm font-medium">Overall Attendance (%)</label><input type="number" name="attendanceOverall" class="mt-1 w-full p-2 border rounded-md"></div>
+            <div><label class="block text-sm font-medium">Mentor Observations</label><textarea name="observations" rows="3" class="mt-1 w-full p-2 border rounded-md"></textarea></div>
+            <p class="text-sm text-gray-600">Please use the 'Edit' button later to add detailed exam and month-wise attendance progress.</p>
+            <button type="submit" class="w-full mt-4 py-2 px-4 bg-indigo-600 text-white rounded-lg">Add Basic Record</button>
+        `;
+        showModal('Add New Academic Record', formHTML, (formData) => {
+            const rollNo = formData.get('rollNo');
+            const student = studentData.find(s => s.rollNo === rollNo);
+            const data = { rollNo: rollNo, name: student.name };
+            formData.forEach((value, key) => data[key] = value);
+            data.semester = 'even'; // Default new records to even sem
+            academicProgressData.push(data);
+            saveAcademicProgressToB();
+            renderAcademicProgressTable();
+        });
+    });
+
+    document.getElementById('add-student-activity-btn').addEventListener('click', () => {
+        const students = studentData.filter(s => s.mentorUsername === currentMentorUsername);
+        const studentOptions = students.map(s => `<option value="${s.rollNo}">${s.name} (${s.rollNo})</option>`).join('');
+
+        const formHTML = `
+            <div>
+                <label class="block text-sm font-medium">Select Student</label>
+                <select name="rollNo" id="select-student-activity" class="mt-1 w-full p-2 border rounded-md" required>
+                    <option value="">-- Select Student --</option>
+                    ${studentOptions}
+                </select>
+            </div>
+            <p class="text-sm text-gray-600">Use the 'Edit' button to modify detailed activities.</p>
+            <button type="submit" class="w-full mt-4 py-2 px-4 bg-indigo-600 text-white rounded-lg">Select Student to Edit</button>
+        `;
+
+        showModal('Add/Edit Student Activity', formHTML, (formData) => {
+            const rollNo = formData.get('rollNo');
+            openStudentProgressModal(rollNo);
+        });
+    });
+
+    function openStudentProgressModal(rollNo) {
+        const student = studentData.find(s => s.rollNo === rollNo);
+        const existingData = studentProgressData.find(d => d.rollNo === rollNo) || {};
+
+        const formHTML = `
+            <input type="hidden" name="rollNo" value="${rollNo}">
+            <h3 class="text-xl font-semibold text-gray-700 border-b pb-2 mb-4">${student.name} (${rollNo}) - Co-Curricular Progress</h3>
+
+            <h4 class="font-bold text-md text-gray-700">Technical Activities:</h4>
+            <div><label class="block text-sm font-medium">NPTEL Course Completed</label><input type="text" name="nptel" class="mt-1 w-full p-2 border rounded-md" value="${existingData.nptel || ''}"></div>
+            <div><label class="block text-sm font-medium">Internship Details</label><input type="text" name="internship" class="mt-1 w-full p-2 border rounded-md" value="${existingData.internship || ''}"></div>
+            <div><label class="block text-sm font-medium">Various Trainings/Certifications</label><input type="text" name="variousTrainings" class="mt-1 w-full p-2 border rounded-md" value="${existingData.variousTrainings || ''}"></div>
+            <div><label class="block text-sm font-medium">Software/Language Proficiencies</label><input type="text" name="software" class="mt-1 w-full p-2 border rounded-md" value="${existingData.software || ''}"></div>
+            
+            <h4 class="font-bold text-md text-gray-700 mt-6 border-t pt-4">Participation & Outreach:</h4>
+            <div><label class="block text-sm font-medium">In-house Events/VAC</label><input type="text" name="inHouseEvents" class="mt-1 w-full p-2 border rounded-md" value="${existingData.inHouseEvents || ''}"></div>
+            <div><label class="block text-sm font-medium">Other Competitions/Events</label><input type="text" name="events" class="mt-1 w-full p-2 border rounded-md" value="${existingData.events || ''}"></div>
+            <div><label class="block text-sm font-medium">Workshop/Seminar Attended</label><input type="text" name="workshopSeminar" class="mt-1 w-full p-2 border rounded-md" value="${existingData.workshopSeminar || ''}"></div>
+            <div><label class="block text-sm font-medium">Sports / NSS / Cultural (Lakshya)</label><input type="text" name="nssCultural" class="mt-1 w-full p-2 border rounded-md" value="${existingData.nssCultural || ''}"></div>
+            <div><label class="block text-sm font-medium">Sports Participation (Specifics)</label><input type="text" name="sports" class="mt-1 w-full p-2 border rounded-md" value="${existingData.sports || ''}"></div>
+
+            <div class="mt-6 border-t pt-4">
+                <label class="block text-sm font-medium">Mentor Advice/Remarks</label>
+                <textarea name="mentorAdvice" rows="3" class="mt-1 w-full p-2 border rounded-md">${existingData.mentorAdvice || ''}</textarea>
+            </div>
+            <button type="submit" class="w-full mt-4 py-2 px-4 bg-indigo-600 text-white rounded-lg">Save Activity Record</button>
+        `;
+
+        showModal('Update Student Activity', formHTML, (formData) => {
+            const data = { rollNo: rollNo, name: student.name };
+            formData.forEach((value, key) => data[key] = value);
+
+            const index = studentProgressData.findIndex(d => d.rollNo === rollNo);
+            if (index !== -1) {
+                studentProgressData[index] = { ...studentProgressData[index], ...data };
+            } else {
+                studentProgressData.push(data);
+            }
+            saveStudentProgressToB();
+            renderStudentProgressTable();
+        });
+    }
+
+    /* Analysis Report (Mentor) */
+    function populateStudentSelector() {
+        const selector = document.getElementById('student-select');
+        const assignedStudents = studentData.filter(s => s.mentorUsername === currentMentorUsername);
+        
+        selector.innerHTML = '<option value="">-- Select Student for Analysis --</option>' +
+            assignedStudents.map(s => `<option value="${s.rollNo}">${s.name} (${s.rollNo})</option>`).join('');
+    }
+
+    document.getElementById('student-select').addEventListener('change', async (e) => {
+        const rollNo = e.target.value;
+        const printBtn = document.getElementById('print-report-btn');
+
+        if (rollNo) {
+            await renderIndividualAnalysis(rollNo);
+            printBtn.classList.remove('hidden');
+        } else {
+            document.getElementById('student-analysis-container').innerHTML = '';
+            printBtn.classList.add('hidden');
+        }
+    });
+
+    document.getElementById('print-report-btn').addEventListener('click', () => {
+        window.print();
+    });
+
+    // AUTO CATEGORY COMPUTATION: use local data
+    function computeExamOverallPercent(academic) {
+        let totalObtained = 0;
+        let subjects = 0;
+        for (let i = 1; i <= 8; i++) {
+            const course = academic[`examCourseName${i}`];
+            if (course) {
+                const ise1 = parseInt(academic[`examISE1_${i}`]) || 0; // out of 40
+                const mse = parseInt(academic[`examMSE${i}`]) || 0;   // out of 30
+                const ese = parseInt(academic[`examESE${i}`]) || 0;   // out of 30
+                const total = ise1 + mse + ese; // out of 100
+                totalObtained += total;
+                subjects++;
+            }
+        }
+        if (subjects === 0) return null;
+        return +(totalObtained / (subjects * 100) * 100).toFixed(2);
+    }
+
+    function countActivities(progress) {
+        const fields = ['nptel', 'internship', 'events', 'inHouseEvents', 'workshopSeminar', 'nssCultural', 'sports', 'variousTrainings', 'software'];
+        return fields.reduce((acc, key) => acc + (progress && progress[key] && String(progress[key]).trim() ? 1 : 0), 0);
+    }
+
+    function autoCategoryFromMetrics(examPercent, attendancePercent, activitiesCount) {
+        let score = 0;
+        // Academic
+        if (examPercent !== null) {
+            if (examPercent >= 75) score += 2;
+            else if (examPercent >= 55) score += 1;
+        }
+        // Attendance
+        if (attendancePercent !== null && attendancePercent !== undefined) {
+            if (attendancePercent >= 80) score += 2;
+            else if (attendancePercent >= 65) score += 1;
+        }
+        // Activities
+        if (activitiesCount >= 3) score += 2;
+        else if (activitiesCount >= 1) score += 1;
+
+        if (score >= 5) return 'Bright';
+        if (score >= 3) return 'Average';
+        return 'Weak';
+    }
+
+    async function renderIndividualAnalysis(rollNo) {
+        const student = studentData.find(s => s.rollNo === rollNo);
+        const academic = academicProgressData.find(d => d.rollNo === rollNo) || {};
+        const cocu = studentProgressData.find(d => d.rollNo === rollNo) || {};
+        let existingReport = individualAnalysisReports.find(r => r.rollNo === rollNo) || {};
+
+
+        // Compute metrics
+        const examPercent = computeExamOverallPercent(academic);
+        const attendancePercent = academic.attendanceOverall ?? null;
+        const activitiesCount = countActivities(cocu);
+        const autoCategory = autoCategoryFromMetrics(examPercent, attendancePercent, activitiesCount);
+
+        // Build exam details table
+        let examDetails = '';
+        for (let i = 1; i <= 8; i++) {
+            const course = academic[`examCourseName${i}`];
+            if (course) {
+                const ise1 = parseInt(academic[`examISE1_${i}`]) || 0;
+                const mse = parseInt(academic[`examMSE${i}`]) || 0;
+                const ese = parseInt(academic[`examESE${i}`]) || 0;
+                const total = ise1 + mse + ese;
+                examDetails += `
+                    <tr class="border-b">
+                        <td class="px-3 py-2 text-gray-800 font-medium">${course}</td>
+                        <td class="px-3 py-2">${ise1}</td>
+                        <td class="px-3 py-2">${mse}</td>
+                        <td class="px-3 py-2">${ese}</td>
+                        <td class="px-3 py-2 font-bold">${total} / 100</td>
+                        <td class="px-3 py-2">${academic[`examProgressNoted${i}`] || 'N/A'}</td>
+                    </tr>
+                `;
+            }
+        }
+        const overallPercentage = examPercent !== null ? examPercent.toFixed(2) : 'N/A';
+
+        const content = `
+            <div id="analysis-report-content" class="bg-white p-6 rounded-xl shadow-lg mt-4">
+                <h3 class="text-2xl font-bold text-indigo-700 mb-4 border-b pb-2">${student.name} (${student.rollNo}) - Mentee Analysis</h3>
+                
+                <h4 class="text-xl font-semibold mt-4 mb-2">Academic Summary</h4>
+                <div class="grid grid-cols-2 gap-4 text-sm mb-4">
+                    <p><strong>Batch/Year:</strong> ${student.batch.toUpperCase()}/${student.year}</p>
+                    <p><strong>Mentor:</strong> ${student.mentorUsername}</p>
+                    <p><strong>Overall Attendance:</strong> ${attendancePercent ?? 'N/A'}%</p>
+                    <p><strong>Overall Exam Score:</strong> ${overallPercentage}%</p>
+                </div>
+
+                <h4 class="text-xl font-semibold mt-4 mb-2">Exam Performance Details</h4>
+                <div class="overflow-x-auto mb-4">
+                    <table class="min-w-full text-sm text-left text-gray-500 border border-gray-200">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-50">
+                            <tr>
+                                <th class="px-3 py-2">Course</th>
+                                <th class="px-3 py-2">ISE I (40)</th>
+                                <th class="px-3 py-2">MSE (30)</th>
+                                <th class="px-3 py-2">ESE (30)</th>
+                                <th class="px-3 py-2">Total (100)</th>
+                                <th class="px-3 py-2">Progress Noted</th>
+                            </tr>
+                        </thead>
+                        <tbody>${examDetails || '<tr><td colspan="6" class="px-3 py-2 text-center">No exam data available.</td></tr>'}</tbody>
+                    </table>
+                </div>
+
+                <h4 class="text-xl font-semibold mt-4 mb-2">Co-Curricular/Activity Summary</h4>
+                <div class="grid grid-cols-2 gap-4 text-sm mb-4">
+                    <p><strong>NPTEL/Certifications:</strong> ${cocu.nptel || 'None'}</p>
+                    <p><strong>Internship:</strong> ${cocu.internship || 'None'}</p>
+                    <p><strong>Events/Competitions:</strong> ${cocu.events || 'None'}</p>
+                    <p><strong>Sports/NSS:</strong> ${cocu.nssCultural || 'None'}</p>
+                </div>
+
+                <h4 class="text-xl font-semibold mt-4 mb-2 border-t pt-4">Mentor's Analysis and Category</h4>
+                <form id="individual-analysis-form" data-rollno="${rollNo}" class="space-y-4">
+                    <div class="flex flex-wrap gap-4">
+                        <div class="flex items-center">
+                            <input type="radio" id="category-bright" name="category" value="Bright" class="hidden category-radio" ${autoCategory === 'Bright' ? 'checked' : ''} required>
+                            <label for="category-bright" class="cursor-pointer px-4 py-2 border-2 border-transparent rounded-lg text-sm font-medium hover:border-indigo-500">Bright</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="radio" id="category-average" name="category" value="Average" class="hidden category-radio" ${autoCategory === 'Average' ? 'checked' : ''}>
+                            <label for="category-average" class="cursor-pointer px-4 py-2 border-2 border-transparent rounded-lg text-sm font-medium hover:border-indigo-500">Average</label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="radio" id="category-weak" name="category" value="Weak" class="hidden category-radio" ${autoCategory === 'Weak' ? 'checked' : ''}>
+                            <label for="category-weak" class="cursor-pointer px-4 py-2 border-2 border-transparent rounded-lg text-sm font-medium hover:border-indigo-500">Weak</label>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label for="analysis-remarks" class="block text-sm font-medium">Mentor's Detailed Remarks and Action Plan</label>
+                        <textarea id="analysis-remarks" name="remarks" rows="4" class="mt-1 w-full p-2 border rounded-md" required>${existingReport.remarks || ''}</textarea>
+                    </div>
+
+                    <button type="submit" class="w-full py-2 px-4 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">Save Analysis Report</button>
+                    <p id="analysis-save-msg" class="text-green-600 text-center"></p>
+                </form>
+            </div>
+        `;
+        document.getElementById('student-analysis-container').innerHTML = content;
+        
+        document.getElementById('individual-analysis-form').addEventListener('submit', handleSaveAnalysis);
+    }
+
+    async function handleSaveAnalysis(e) {
+        e.preventDefault();
+        const rollNo = e.target.getAttribute('data-rollno');
+        const formData = new FormData(e.target);
+        const report = {
+            rollNo: rollNo,
+            category: formData.get('category'),
+            remarks: formData.get('remarks'),
+            date: new Date().toISOString().split('T')[0]
+        };
+
+        const index = individualAnalysisReports.findIndex(r => r.rollNo === rollNo);
+        if (index !== -1) {
+            individualAnalysisReports[index] = report;
+        } else {
+            individualAnalysisReports.push(report);
+        }
+
+        saveAnalysisReportsToB();
+        renderAnalysisReportsTable();
+        setupDashboard(studentData.filter(s => s.mentorUsername === currentMentorUsername));
+        const msg = document.getElementById('analysis-save-msg');
+        msg.textContent = 'Analysis Report saved successfully!';
+        setTimeout(() => msg.textContent = '', 3000);
+        renderIndividualAnalysis(rollNo);
+    }
+
+    function renderAnalysisReportsTable() {
+        const assignedReports = individualAnalysisReports.filter(r => 
+            studentData.some(s => s.rollNo === r.rollNo && s.mentorUsername === currentMentorUsername)
+        );
+
+        const tableBody = document.getElementById('analysis-reports-table');
+        tableBody.innerHTML = assignedReports.map(report => `
+            <tr class="bg-white border-b hover:bg-gray-50">
+                <td class="px-6 py-4 font-medium text-gray-900">${report.rollNo}</td>
+                <td class="px-6 py-4 font-bold text-center ${report.category === 'Bright' ? 'text-green-600' : report.category === 'Weak' ? 'text-red-600' : 'text-yellow-600'}">${report.category}</td>
+                <td class="px-6 py-4 truncate max-w-xs">${report.remarks}</td>
+                <td class="px-6 py-4">
+                    <button class="text-indigo-600 hover:underline view-analysis-btn" data-rollno="${report.rollNo}">View/Edit</button>
+                </td>
+            </tr>
+        `).join('');
+
+        document.querySelectorAll('.view-analysis-btn').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const rollNo = e.target.getAttribute('data-rollno');
+                document.getElementById('student-select').value = rollNo;
+                document.getElementById('student-select').dispatchEvent(new Event('change'));
+            });
+        });
+    }
+
+
+    /* ------------------------- Student functions ------------------------- */
+    function initializeStudentApp(student) {
+        document.getElementById('student-sidebar-name').textContent = student.name;
+        document.getElementById('student-sidebar-rollno').textContent = `Roll No: ${student.rollNo}`;
+        document.getElementById('student-sidebar-mentor').textContent = `Mentor: ${student.mentorUsername === 'unassigned' ? 'N/A' : student.mentorUsername}`;
+        
+        document.querySelector('.student-nav-link[data-target="student-academic-form"]').classList.add('bg-indigo-50', 'text-indigo-600', 'font-semibold');
+        
+        updateStudentAcademicForm(student.rollNo);
+        updateStudentCocuForm(student.rollNo);
+    }
+
+    function handleAcademicFormToggle() {
+        const semesterSelect = document.getElementById('semester-select');
+        const evenSemAttendance = document.getElementById('even-sem-attendance');
+        const oddSemAttendance = document.getElementById('odd-sem-attendance');
+        
+        if (!semesterSelect) return;
+
+        const selectedSemester = semesterSelect.value;
+        if (selectedSemester === 'odd') {
+            evenSemAttendance.classList.add('hidden');
+            oddSemAttendance.classList.remove('hidden');
+        } else {
+            evenSemAttendance.classList.remove('hidden');
+            oddSemAttendance.classList.add('hidden');
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        const semesterSelect = document.getElementById('semester-select');
+        if (semesterSelect) {
+            semesterSelect.addEventListener('change', handleAcademicFormToggle);
+            handleAcademicFormToggle(); 
+        }
+    });
+
+    function updateStudentAcademicForm(rollNo) {
+        const existingData = academicProgressData.find(d => d.rollNo === rollNo) || {};
+        const form = document.getElementById('academic-profile-form');
+
+        form.semester.value = existingData.semester || 'even';
+        handleAcademicFormToggle(); 
+
+        form.attendanceOverall.value = existingData.attendanceOverall || '';
+        form.observations.value = existingData.observations || '';
+
+        const attendanceMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov'];
+        attendanceMonths.forEach(month => {
+            const field = form[`attendanceSubjects${month}`];
+            if (field) field.value = existingData[`attendanceSubjects${month}`] || '';
+        });
+
+        for (let i = 1; i <= 8; i++) {
+            const course = form[`examCourseName${i}`];
+            const ise1 = form[`examISE1_${i}`];
+            const mse = form[`examMSE${i}`];
+            const ese = form[`examESE${i}`];
+            const progress = form[`examProgressNoted${i}`];
+            
+            if (course) course.value = existingData[`examCourseName${i}`] || '';
+            if (ise1) ise1.value = existingData[`examISE1_${i}`] || '';
+            if (mse) mse.value = existingData[`examMSE${i}`] || '';
+            if (ese) ese.value = existingData[`examESE${i}`] || '';
+            if (progress) progress.value = existingData[`examProgressNoted${i}`] || '';
+        }
+
+        form.observations.readOnly = true;
+    }
+
+    document.getElementById('academic-profile-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const rollNo = currentStudentRollNo;
+        const student = studentData.find(s => s.rollNo === rollNo);
+        const formData = new FormData(e.target);
+        
+        const data = { rollNo: rollNo, name: student.name };
+        formData.forEach((value, key) => {
+            if (key !== 'observations') {
+                data[key] = value;
+            }
+        });
+
+        const index = academicProgressData.findIndex(d => d.rollNo === rollNo);
+        if (index !== -1) {
+            academicProgressData[index] = { ...academicProgressData[index], ...data };
+        } else {
+            academicProgressData.push(data);
+        }
+
+        saveAcademicProgressToB();
+        const msg = document.getElementById('academic-profile-save-msg');
+        msg.textContent = 'Profile saved successfully!';
+        setTimeout(() => msg.textContent = '', 3000);
+
+        if (!appPage.classList.contains('hidden')) renderAcademicProgressTable();
+    });
+
+    function updateStudentCocuForm(rollNo) {
+        const existingData = studentProgressData.find(d => d.rollNo === rollNo) || {};
+        const form = document.getElementById('cocu-profile-form');
+        
+        form.nptel.value = existingData.nptel || '';
+        form.internship.value = existingData.internship || '';
+        form.variousTrainings.value = existingData.variousTrainings || '';
+        form.software.value = existingData.software || '';
+        form.inHouseEvents.value = existingData.inHouseEvents || '';
+        form.events.value = existingData.events || '';
+        form.workshopSeminar.value = existingData.workshopSeminar || '';
+        form.nssCultural.value = existingData.nssCultural || '';
+        form.sports.value = existingData.sports || '';
+        
+        form.mentorAdvice.value = existingData.mentorAdvice || '';
+        form.mentorAdvice.readOnly = true;
+    }
+
+    document.getElementById('cocu-profile-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const rollNo = currentStudentRollNo;
+        const student = studentData.find(s => s.rollNo === rollNo);
+        const formData = new FormData(e.target);
+        
+        const data = { rollNo: rollNo, name: student.name };
+        formData.forEach((value, key) => {
+             if (key !== 'mentorAdvice') {
+                data[key] = value;
+            }
+        });
+
+        const index = studentProgressData.findIndex(d => d.rollNo === rollNo);
+        if (index !== -1) {
+            studentProgressData[index] = { ...studentProgressData[index], ...data };
+        } else {
+            studentProgressData.push(data);
+        }
+
+        const msg = document.getElementById('cocu-profile-save-msg');
+        msg.textContent = 'Profile saved successfully!';
+        setTimeout(() => msg.textContent = '', 3000);
+
+        if (!appPage.classList.contains('hidden')) renderStudentProgressTable();
+    });
+</script>
+
+</body>
+</html>
